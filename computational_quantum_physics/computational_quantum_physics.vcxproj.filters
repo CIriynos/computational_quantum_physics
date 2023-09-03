@@ -47,5 +47,14 @@
     <ClInclude Include="TDSESolverFFT.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ImagTimePropagation.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Tools.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="TDSESolverFDInSH.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

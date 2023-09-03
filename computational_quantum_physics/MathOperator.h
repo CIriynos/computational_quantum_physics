@@ -6,7 +6,6 @@
 #include "Eigen/Sparse"
 #include "Eigen/Dense"
 
-
 typedef Eigen::SparseMatrix< std::complex<double> > SpMat;
 
 template<unsigned N>

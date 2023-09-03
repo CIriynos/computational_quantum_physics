@@ -106,12 +106,21 @@ typedef GridPoint<3> Point3D;
 constexpr int LITTEL_INDEX_FASTRUNING = 1;
 constexpr int LARGE_INDEX_FASTRUNING = 2;
 
+constexpr int X_DEGREE = 0;
+constexpr int Y_DEGREE = 1;
+constexpr int Z_DEGREE = 2;
+
+constexpr int R_DEGREE = 0;
+constexpr int THETA_DEGREE = 1;
+constexpr int PHI_DEGREE = 2;
+
 //DO NOT USE M = LARGE_INDEX_FASTRUNING!!!!!!!!
 
 template<unsigned N, unsigned M = LITTEL_INDEX_FASTRUNING>
 class NumericalGrid
 {
 public:
+	constexpr static int N_plus_one = N + 1;
 	template<typename... Args>
 	NumericalGrid(Args... parameters)
 		: parameter_count(static_cast<int>(sizeof...(parameters) / 3))
@@ -208,6 +217,71 @@ public:
 		return id;
 	}
 
+	template<unsigned _N>
+	NumericalGrid<_N> subset(std::initializer_list<int> bitset) const
+	{
+		assert(bitset.size() == _N && _N <= N && _N > 0);
+		int new_pos_cnt[_N] = { 0 };
+		double new_len[_N] = { 0.0 };
+		double new_off[_N] = { 0.0 };
+
+		int k = 0;
+		for (auto iter = bitset.begin(); iter != bitset.end(); iter++) {
+			new_pos_cnt[k] = pos_count[*iter];
+			new_len[k] = length[*iter];
+			new_off[k] = offset[*iter];
+			k++;
+		}
+
+		NumericalGrid<_N> new_grid(new_pos_cnt, new_len, new_off);
+		return new_grid;
+	}
+
+	NumericalGrid<N_plus_one> supersetOnce(int id, int N, double len, double off) const {
+		int new_pos_cnt[N_plus_one] = { 0 };
+		double new_len[N_plus_one] = { 0.0 };
+		double new_off[N_plus_one] = { 0.0 };
+		int k = 0;
+		for (int i = 0; i < N_plus_one; i++) {
+			if (i == id) {
+				new_pos_cnt[i] = N;
+				new_len[i] = len;
+				new_off[i] = off;
+			}
+			else {
+				new_pos_cnt[i] = pos_count[k];
+				new_len[i] = length[k];
+				new_off[i] = offset[k];
+				k++;
+			}
+		}
+		return NumericalGrid<N_plus_one>(new_pos_cnt, new_len, new_off);
+	}
+
+	NumericalGrid<N> scramble(std::initializer_list<int> bitset)
+	{
+		//check validity of input
+		std::vector<int> normal_order(N);
+		for (int i = 0; i < N; i++) {
+			normal_order[i] = i;
+		}
+		if (!is_permutation(normal_order.begin(), normal_order.end(), bitset.begin())) {
+			return NumericalGrid<N>();
+		}
+
+		int new_pos_cnt[N] = { 0 };
+		double new_len[N] = { 0.0 };
+		double new_off[N] = { 0.0 };
+		int k = 0;
+		for (auto degree : bitset) {
+			new_pos_cnt[degree] = k;
+			new_len[degree] = k;
+			new_off[degree] = k;
+			k++;
+		}
+		return NumericalGrid<N>(new_pos_cnt, new_len, new_off);
+	}
+
 	int getTotalCount() const { return total_count; }
 	int getCount(int degree = 0) const { return pos_count[degree]; }
 	double getLength(int degree = 0) const { return length[degree]; }
@@ -232,6 +306,7 @@ public:
 			os << grid.offset[i] << " ";
 		}
 		os << std::endl;
+		return os;
 	}
 
 private:

@@ -15,6 +15,8 @@ template<unsigned N>
 class Wavefunction
 {
 public:
+	constexpr static int N_plus_one = N + 1;
+
 	Wavefunction();
 	Wavefunction(const NumericalGrid<N>&);
 	Wavefunction(const NumericalGrid<N>&, const std::vector<std::complex<double> >&);
@@ -33,16 +35,26 @@ public:
 	std::complex<double>& operator[](int);
 
 	template<unsigned _N>
-	Wavefunction<_N> getSlice(const std::vector< GridPoint<N> >&) const;
+	Wavefunction<_N> getSlice(std::initializer_list< std::pair<int, int> >) const;
+
+	template<unsigned _N>
+	Wavefunction<_N> uplift(const NumericalGrid<_N>&) const;
+
+	Wavefunction<Wavefunction<N>::N_plus_one> upliftOnce(int degree, int N, double L, double off) const;
 
 	Wavefunction<N> replaceGrid(const NumericalGrid<N>&);
 
 	std::complex<double> norm() const;
 	std::complex<double> innerProduct(const Wavefunction<N>&) const;
+	Wavefunction<N> conjugate() const;
 	Wavefunction<N> operator+(const Wavefunction<N>&) const;
 	Wavefunction<N> operator-(const Wavefunction<N>&) const;
 	Wavefunction<N> operator*(std::complex<double>) const;
 	Wavefunction<N> operator*(const Wavefunction<N>&) const;
+	Wavefunction<N> operator/(std::complex<double>) const;
+	Wavefunction<N> operator/(const Wavefunction<N>&) const;
+	
+	void normalize();
 
 private:
 	NumericalGrid<N> grid;
@@ -106,7 +118,7 @@ Wavefunction<N>& Wavefunction<N>::operator=(const Wavefunction<N>& wave)
 template<unsigned N>
 inline Wavefunction<N>& Wavefunction<N>::operator=(Wavefunction<N>&& wave) noexcept
 {
-	grid = std::move(wave.grid);
+	grid = wave.grid;
 	samples = std::move(wave.samples);
 	return *this;
 }
@@ -157,7 +169,7 @@ inline std::complex<double> Wavefunction<N>::innerProduct(const Wavefunction<N>&
 	for (int i = 0; i < N; i++) {
 		delta *= grid.getDelta(i);
 	}
-	return res * delta;
+	return res;
 }
 
 template<unsigned N>
@@ -196,10 +208,114 @@ inline Wavefunction<N> Wavefunction<N>::operator*(const Wavefunction<N>& wave) c
 }
 
 template<unsigned N>
-template<unsigned _N>
-inline Wavefunction<_N> Wavefunction<N>::getSlice(const std::vector<GridPoint<N>>& sub_area) const
+inline Wavefunction<N> Wavefunction<N>::operator/(std::complex<double> scaler) const
 {
-	return Wavefunction<_N>();
+	auto res = samples / scaler;
+	Wavefunction<N> new_wave(grid, res);
+	return new_wave;
+}
+
+template<unsigned N>
+inline Wavefunction<N> Wavefunction<N>::operator/(const Wavefunction<N>& wave) const
+{
+	assert(grid == wave.grid);
+	auto res = (samples.array() / wave.samples.array()).matrix();
+	Wavefunction<N> new_wave(grid, res);
+	return new_wave;
+}
+
+template<unsigned N>
+inline Wavefunction<N> Wavefunction<N>::conjugate() const
+{
+	return Wavefunction<N>(grid, samples.conjugate());
+}
+
+template<unsigned N>
+inline void Wavefunction<N>::normalize()
+{
+	samples.normalize();
+}
+
+
+template<unsigned N>
+template<unsigned _N>
+inline Wavefunction<_N> Wavefunction<N>::getSlice(std::initializer_list< std::pair<int, int> > L) const
+{
+	assert(N - L.size() == _N);
+
+	int sub_degrees[_N] = { 0 };
+	int flags[N] = { 0 };
+	int flags_index[N] = { 0 };
+	int k = 0;
+
+	for (auto tmp : L) {
+		flags[tmp.first] = 1;  //means degree of "tmp" is unavailable.
+		flags_index[tmp.first] = tmp.second;
+	}
+	for (int i = 0; i < N; i++) {
+		if (flags[i] == 0) {
+			sub_degrees[k] = i;
+			k++;
+		}
+	}
+
+	NumericalGrid<_N> sub_grid = grid.subset<_N>(std::initializer_list<int>(sub_degrees, sub_degrees + _N));
+	Wavefunction<_N> sub_wave(sub_grid);
+
+	int full_indice[N] = { 0 };
+
+	for (int i = 0; i < sub_grid.getTotalCount(); i++) {
+		auto indice = sub_grid.expand(i);
+		int m = 0;
+		for (int j = 0; j < N; j++) {
+			if (flags[j] == 1) {
+				full_indice[j] = flags_index[j];
+			}
+			else {
+				full_indice[j] = indice[m];
+				m++;
+			}
+		}
+		sub_wave.getSamplesHandler()(i) = samples(grid.shrink(full_indice));
+
+		for (int j = 0; j < N; j++) {	//clear
+			full_indice[j] = 0;
+		}
+		m = 0;
+	}
+
+	return sub_wave;
+}
+
+template<unsigned N>
+template<unsigned _N>
+inline Wavefunction<_N> Wavefunction<N>::uplift(const NumericalGrid<_N>& new_grid) const
+{
+	assert(_N >= N);
+	Wavefunction<_N> upwave(new_grid);
+
+	for (int i = 0; i < new_grid.getTotalCount(); i++) {
+		auto indice = new_grid.expand(i);
+		std::vector<int> sub_indice(indice.begin(), indice.begin() + N);
+		auto id = grid.shrink(sub_indice);
+		upwave[i] = samples(id);
+	}
+	return upwave;
+}
+
+template<unsigned N>
+inline Wavefunction<Wavefunction<N>::N_plus_one> Wavefunction<N>::upliftOnce(int degree, int N, double L, double off) const
+{
+	NumericalGrid<N_plus_one> new_grid = grid.supersetOnce(degree, N, L, off);
+	Wavefunction<N_plus_one> upwave(new_grid);
+
+	for (int i = 0; i < new_grid.getTotalCount(); i++) {
+		auto indice = new_grid.expand(i);
+		indice.erase(indice.begin() + degree);
+		auto id = grid.shrink(indice);
+		upwave.getSamplesHandler()(i) = samples(id);
+	}
+	return upwave;
 }
 
 template<unsigned N>
@@ -208,97 +324,6 @@ inline Wavefunction<N> Wavefunction<N>::replaceGrid(const NumericalGrid<N>&)
 	return Wavefunction<N>();
 }
 
-inline Wavefunction1D create1DWaveByExpression(const NumericalGrid1D& grid, std::function<std::complex<double>(double)> func)
-{
-	std::vector< std::complex<double> > buffer(grid.getTotalCount(), 0);
-
-	double x = 0;
-	for (int i = 0; i < grid.getTotalCount(); i++) {
-		x = grid.index(i).x();
-		buffer[i] = func(x);
-	}
-	Wavefunction1D wave(grid, buffer);
-	return wave;
-}
-
-inline Wavefunction2D create2DWaveByExpression(const NumericalGrid2D& grid, std::function<std::complex<double>(double, double)> func)
-{
-	std::vector< std::complex<double> > buffer(grid.getTotalCount(), 0);
-
-	double x = 0, y = 0;
-	for (int i = 0; i < grid.getTotalCount(); i++) {
-		x = grid.index(i).x();
-		y = grid.index(i).y();
-		buffer[i] = func(x, y);
-	}
-	Wavefunction2D wave(grid, buffer);
-	return wave;
-}
-
-inline Wavefunction3D create3DWaveByExpression(const NumericalGrid3D& grid, std::function<std::complex<double>(double, double, double)> func)
-{
-	std::vector< std::complex<double> > buffer(grid.getTotalCount(), 0);
-
-	double x = 0, y = 0, z = 0;
-	for (int i = 0; i < grid.getTotalCount(); i++) {
-		x = grid.index(i).x();
-		y = grid.index(i).y();
-		z = grid.index(i).z();
-		buffer[i] = func(x, y, z);
-	}
-	Wavefunction3D wave(grid, buffer);
-	return wave;
-}
-
-template<unsigned N>
-inline Wavefunction<N> createWaveByExpressionWithIndex(const NumericalGrid<N>& grid, std::function<std::complex<double>(int)> func)
-{
-	std::vector< std::complex<double> > buffer(grid.getTotalCount(), 0);
-	for (int i = 0; i < grid.getTotalCount(); i++) {
-		buffer[i] = func(i);
-	}
-	Wavefunction<N> wave(grid, buffer);
-	return wave;
-}
-
-inline std::function<std::complex<double>(double)> makeGaussPkg1D(double omega_x, double x0, double p0)
-{
-	using namespace std::literals;
-	std::complex<double> C = 1.0 / std::pow(2 * PI * omega_x * omega_x, 0.25);
-	return [C, omega_x, x0, p0](double x) {
-		return C * std::exp(-std::pow((x - x0) / (2 * omega_x), 2)) * std::exp(1i * p0 * x);
-	};
-}
-
-inline std::function<std::complex<double>(double, double)> makeGaussPkg2D(double omega_x, double omega_y, double x0, double y0, double px, double py)
-{
-	using namespace std::literals;
-	auto Cx = 1.0 / std::pow(2 * PI * omega_x * omega_x, 0.25);
-	auto Cy = 1.0 / std::pow(2 * PI * omega_y * omega_y, 0.25);
-
-	return [Cx, Cy, omega_x, omega_y, x0, y0, px, py](double x, double y) {
-		auto xpart = Cx * std::exp(-std::pow((x - x0) / (2 * omega_x), 2)) * std::exp(1i * px * x);
-		auto ypart = Cy * std::exp(-std::pow((y - y0) / (2 * omega_y), 2)) * std::exp(1i * py * y);
-		return xpart * ypart;
-	};
-}
-
-inline std::function<std::complex<double>(double, double, double)> makeGaussPkg3D(double omega_x, double omega_y, double omega_z, double x0, double y0, double z0, double px, double py, double pz)
-{
-	using namespace std::literals;
-	auto Cx = 1.0 / std::pow(2 * PI * omega_x * omega_x, 0.25);
-	auto Cy = 1.0 / std::pow(2 * PI * omega_y * omega_y, 0.25);
-	auto Cz = 1.0 / std::pow(2 * PI * omega_z * omega_z, 0.25);
-
-	return [Cx, Cy, Cz, omega_x, omega_y, omega_z, x0, y0, z0, px, py, pz](double x, double y, double z) {
-		auto xpart = Cx * std::exp(-std::pow((x - x0) / (2 * omega_x), 2)) * std::exp(1i * px * x);
-		auto ypart = Cy * std::exp(-std::pow((y - y0) / (2 * omega_y), 2)) * std::exp(1i * py * y);
-		auto zpart = Cz * std::exp(-std::pow((z - z0) / (2 * omega_z), 2)) * std::exp(1i * pz * z);
-		return xpart * ypart * zpart;
-	};
-}
-
-inline Wavefunction1D fft_agent_func_1d(std::vector<double>, const NumericalGrid1D&, const Wavefunction1D&, int);
 
 template<unsigned N>
 inline Wavefunction<N> fft(const Wavefunction<N>& wave, const std::vector<double>& k) {
@@ -310,9 +335,11 @@ inline Wavefunction<N> ifft(const Wavefunction<N>& wave, const std::vector<doubl
 	return fft_agent_func(k, wave.getGrid(), wave, FFTW_BACKWARD);
 }
 
+/*
 inline Wavefunction<1> fft1D(const Wavefunction<1>& wave, const std::vector<double>& k) {
 	return fft_agent_func_1d(k, wave.getGrid(), wave, FFTW_FORWARD);
 }
+*/
 
 inline Wavefunction1D fft_agent_func_1d(std::vector<double> center_k_vector, const NumericalGrid1D& grid, const Wavefunction1D& myself, int mode)
 {
@@ -470,5 +497,7 @@ inline Wavefunction<N> fft_agent_func(std::vector<double> center_k_vector, const
 
 	return Wavefunction<N>(new_grid, new_wave_data);
 }
+
+
 
 #endif // !__WAVE_FUNCTION_H__

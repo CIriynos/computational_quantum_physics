@@ -3,6 +3,7 @@
 
 #include "TDSESolver.h"
 #include "MathOperator.h"
+#include "Tools.h"
 
 template<unsigned N>
 class TDSESolverFFT : public TDSESolver<N>
@@ -74,7 +75,7 @@ inline TDSESolverFFT<3>::TDSESolverFFT(const Wavefunction<3>& po_func, const Wav
 
 	phase_factor_1 = create3DWaveByExpression(fft_grid, [dt](double kx, double ky, double kz) {
 		return std::exp(-0.25i * dt * kx * kx) * std::exp(-0.25i * dt * ky * ky) * std::exp(-0.25i * dt * kz * kz);
-		});
+	});
 	phase_factor_2 = createWaveByExpressionWithIndex(grid, [dt, &V](int i) {
 		return std::exp(-1i * dt * V(i));
 	});

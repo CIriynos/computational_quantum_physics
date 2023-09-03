@@ -68,7 +68,7 @@ int SingleWave1DToMat(const Wavefunction1D& wave, int mode)
 	return 0;
 }
 
-int WaveAnimation1DToMat(const std::vector<WaveMsg<1> >& objects, int mode)
+int WaveAnimation1DToMat(const std::vector< WaveMsg<1> >& objects, int mode)
 {
 	MATFile* pMatFile = NULL;
 	mxArray* pMxArray1 = NULL, * pMxArray2 = NULL;
@@ -151,7 +151,7 @@ int WaveAnimation1DToMat(const std::vector<WaveMsg<1> >& objects, int mode)
 	return 0;
 }
 
-int WaveAnimation2DToMat(const std::vector< WaveMsg<2> >& objects, int mode)
+int WaveAnimation2DToMat(const std::vector< WaveMsg<2> >& objects, int mode, int coordinate)
 {
 	MATFile* pMatFile = NULL;
 	mxArray* pMxArray1 = NULL, * pMxArray2 = NULL, * pMxArray3 = NULL;
@@ -200,8 +200,19 @@ int WaveAnimation2DToMat(const std::vector< WaveMsg<2> >& objects, int mode)
 			else if (mode == IMAG_MODE) {
 				pData1[i] = obj.getValueByIndex(i).imag();
 			}
-			pData2[i] = obj.getGrid().index(i).x();
-			pData3[i] = obj.getGrid().index(i).y();
+
+			if (coordinate == CARTESIAN_COORDINATE) {
+				pData2[i] = obj.getGrid().index(i).x();
+				pData3[i] = obj.getGrid().index(i).y();
+			}
+			else if (coordinate == POLAR_COORDINATE) {
+				// x = r cos(phi)
+				// y = r sin(phi)
+				auto r = obj.getGrid().index(i).x();
+				auto phi = obj.getGrid().index(i).y();
+				pData2[i] = r * std::cos(phi);
+				pData3[i] = r * std::sin(phi);
+			}
 		}
 
 		if (cnt_map.count(name) == 0) {
@@ -239,7 +250,7 @@ int WaveAnimation2DToMat(const std::vector< WaveMsg<2> >& objects, int mode)
 	return 0;
 }
 
-int WaveAnimation3DToMat(const std::vector< WaveMsg<3> >& objects, int mode)
+int WaveAnimation3DToMat(const std::vector< WaveMsg<3> >& objects, int mode, int coordinate)
 {
 	MATFile* pMatFile = NULL;
 	mxArray* pMxArray1 = NULL;
@@ -248,7 +259,7 @@ int WaveAnimation3DToMat(const std::vector< WaveMsg<3> >& objects, int mode)
 	char name_str_1[10];
 	int error_code = 0;  //0: normal
 	std::map<std::string, int> cnt_map;
-	const double MINIMAL_DISPLAY_THRESHOLD = 1e-3;
+	const double MINIMAL_DISPLAY_THRESHOLD = 1e-6;
 
 	pMatFile = matOpen("test_mat_file.mat", "w");
 	if (pMatFile == NULL) {
@@ -295,9 +306,22 @@ int WaveAnimation3DToMat(const std::vector< WaveMsg<3> >& objects, int mode)
 					else if (mode == IMAG_MODE) {
 						pre_alloc_pData1[phead * 4 + 3] = obj.getValueByIndex(index).imag();
 					}
-					pre_alloc_pData1[phead * 4] = obj.getGrid().index(index).x();
-					pre_alloc_pData1[phead * 4 + 1] = obj.getGrid().index(index).y();
-					pre_alloc_pData1[phead * 4 + 2] = obj.getGrid().index(index).z();
+					if (coordinate == CARTESIAN_COORDINATE) {
+						pre_alloc_pData1[phead * 4] = obj.getGrid().index(index).x();
+						pre_alloc_pData1[phead * 4 + 1] = obj.getGrid().index(index).y();
+						pre_alloc_pData1[phead * 4 + 2] = obj.getGrid().index(index).z();
+					}
+					else if (coordinate == SPHERE_COORDINATE) {
+						// x = rsin(theta)cos(phi)
+						// y = rsin(theta)sin(phi)
+						// z = rcos(theta)
+						auto r = obj.getGrid().index(index).x();
+						auto theta = obj.getGrid().index(index).y();
+						auto phi = obj.getGrid().index(index).z();
+						pre_alloc_pData1[phead * 4] = r * std::sin(theta) * std::cos(phi);
+						pre_alloc_pData1[phead * 4 + 1] = r * std::sin(theta) * std::sin(phi);
+						pre_alloc_pData1[phead * 4 + 2] = r * std::cos(theta);
+					}
 					phead += 1;
 				}
 			}

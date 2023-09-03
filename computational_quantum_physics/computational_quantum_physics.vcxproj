@@ -140,11 +140,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ExportDataToMatFile.h" />
+    <ClInclude Include="ImagTimePropagation.h" />
     <ClInclude Include="MathOperator.h" />
     <ClInclude Include="NumericalGrid.h" />
     <ClInclude Include="TDSESolver.h" />
     <ClInclude Include="TDSESolverFD.h" />
+    <ClInclude Include="TDSESolverFDInSH.h" />
     <ClInclude Include="TDSESolverFFT.h" />
+    <ClInclude Include="Tools.h" />
     <ClInclude Include="Util.h" />
     <ClInclude Include="Wavefunction.h" />
   </ItemGroup>

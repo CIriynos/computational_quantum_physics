@@ -3,17 +3,18 @@ clc;
 clear;
 
 load('test_mat_file.mat');
+name = "rf";
 
 cnt = evalin("base", "total");
 MovieBuffer(cnt) = struct('cdata',[],'colormap',[]);
 for i = 1: cnt
-    x_name = "x_" + num2str(i);
-    y_name = "y_" + num2str(i);
+    x_name = name + "_x_" + num2str(i);
+    y_name = name + "_y_" + num2str(i);
     plot(evalin("base", x_name), evalin("base", y_name));
     axis([-inf inf -1 2]);
     MovieBuffer(i) = getframe();
 end
-movie(MovieBuffer, 1, 30);
+movie(MovieBuffer, 1, 1);
 
 %% 1d wave animation comparable
 clc;
@@ -41,7 +42,7 @@ clc;
 clear;
 
 load('test_mat_file.mat');
-name = "test";
+name = "it";
 
 cnt = evalin("base", "total");
 MovieBuffer(cnt) = struct('cdata',[],'colormap',[]);
@@ -65,7 +66,7 @@ clc;
 clear;
 
 load('test_mat_file.mat');
-name = "fft";
+name = "sh";
 
 cnt = evalin("base", "total");
 MovieBuffer(cnt) = struct('cdata',[],'colormap',[]);
@@ -77,7 +78,7 @@ for i = 1: cnt
     Y = evalin("base", y_name);
     Z = evalin("base", z_name);
     s = surf(X, Y, Z);
-    axis([-10 10 -10 10 0 1]);
+    % axis([-10 10 -10 10 0 1]);
     colorbar;
     s.EdgeColor = 'none';
     MovieBuffer(i) = getframe();
@@ -90,15 +91,16 @@ clc;
 clear;
 
 load('test_mat_file.mat');
-name = "fft";
+name = "it";
 
 cnt = evalin("base", name + "_cnt");
 for i = 1: cnt
-    x_name = "x_" + num2str(i);
-    y_name = "y_" + num2str(i);
+    x_name = name + "_x_" + num2str(i);
+    y_name = name + "_y_" + num2str(i);
+    figure(i);
     plot(evalin("base", x_name), evalin("base", y_name));
-    hold on;
-    axis([-inf inf -1 2]);
+    % hold on;
+    % axis([-inf inf -1 2]);
 end
 
 %% 3d scatter
@@ -106,7 +108,7 @@ clc;
 clear;
 
 load('test_mat_file.mat');
-name = "fft";
+name = "it";
 cnt = evalin("base", name + "_cnt");
 transparency = 0.05;
 dotsize = 10;
@@ -115,13 +117,13 @@ MovieBuffer(cnt) = struct('cdata',[],'colormap',[]);
 for i = 1: cnt
     points_name = name + "_3d_" + num2str(i);
     points = evalin("base", points_name);
-    % figure(i);
+    figure(i);
     scatter3(points(1, :), points(2, :), points(3, :), dotsize, points(4, :) .* (-10), 'filled', 'MarkerFaceAlpha', transparency);
-    axis([-10 10 -10 10 -10 10]);
+    % axis([-1 1 -1 1 -1 1]);
     colormap(gca, "winter");
-    MovieBuffer(i) = getframe();
+    % MovieBuffer(i) = getframe();
 end
-movie(MovieBuffer, 1, 5);
+% movie(MovieBuffer, 1, 5);
 
 
 %% scatter3 test
